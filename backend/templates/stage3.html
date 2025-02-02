@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stage 3: Final Verbal Interview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Rubik Font -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <!-- Mediapipe FaceMesh, Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+  <style>
+    /* GLOBAL STYLES */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: "Rubik", sans-serif;
+      background-color: #f9fcff; 
+      color: #333;
+      position: relative;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* BACKGROUND SHAPES */
+    .background-shape {
+      position: absolute;
+      opacity: 0.07;
+      z-index: 0;
+    }
+    .circle1 {
+      width: 300px;
+      height: 300px;
+      background-color: #2962ff;
+      border-radius: 50%;
+      top: -100px;
+      right: -150px;
+    }
+    .circle2 {
+      width: 200px;
+      height: 200px;
+      background-color: #ff5349;
+      border-radius: 50%;
+      bottom: -80px;
+      left: -100px;
+    }
+
+    /* MAIN CONTAINER */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* HEADER */
+    .header-stage3 {
+      margin-bottom: 2rem;
+    }
+    .header-stage3 h2 {
+      color: #2962ff;
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .header-stage3 p {
+      font-size: 1.1rem;
+      color: #666;
+      max-width: 700px;
+      line-height: 1.6;
+    }
+
+    /* INFO BAR: Question Count, Timer */
+    .info-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .info-bar .question-counter {
+      font-size: 1rem;
+      color: #555;
+    }
+    .info-bar .timer-box {
+      background-color: #2962ff;
+      color: #fff;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-weight: 600;
+    }
+    .info-bar .timer-box span {
+      font-size: 1.05rem;
+    }
+
+    /* QUESTION BOX */
+    .question-box {
+      background-color: #ffffff;
+      border-left: 5px solid #2962ff;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      border-radius: 6px;
+      min-height: 60px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .question-box h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: #2962ff;
+      margin-bottom: 0.5rem;
+    }
+    .question-text {
+      font-size: 1.1rem;
+      line-height: 1.5;
+      color: #444;
+    }
+
+    /* ANSWER SECTION */
+    .answer-section {
+      margin-bottom: 2rem;
+    }
+    .answer-field {
+      width: 100%;
+      padding: 0.9rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      min-height: 80px;
+      transition: border-color 0.3s ease;
+    }
+    .answer-field:focus {
+      border-color: #2962ff;
+      outline: none;
+      box-shadow: 0 0 5px rgba(41, 98, 255, 0.3);
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .controls button {
+      background-color: #ff5349;
+      color: #fff;
+      border: none;
+      padding: 0.8rem 1.2rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    .controls button:hover {
+      background-color: #e03f35;
+      transform: translateY(-2px);
+    }
+
+    /* WEBCAM FEED */
+    .webcam-container {
+      position: absolute;
+      bottom: 2rem;
+      right: 2rem;
+      width: 280px;
+      height: 200px;
+      background-color: rgba(0, 0, 0, 0.05);
+      border: 2px dashed #ff5349;
+      border-radius: 8px;
+      overflow: hidden;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .webcam-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* COMPLETION MODAL */
+    .modal-overlay {
+      position: fixed;
+      top: 0; 
+      left: 0; 
+      right: 0; 
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .modal {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 8px;
+      max-width: 400px;
+      text-align: center;
+    }
+    .modal h3 {
+      color: #2962ff;
+      margin-bottom: 1rem;
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+    .modal p {
+      font-size: 1rem;
+      color: #333;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    /* "Proceed to Next Stage" button in the modal (if needed) */
+    .modal button {
+      background-color: #ff5349;
+      color: #fff;
+      border: none;
+      padding: 0.7rem 1rem;
+      font-size: 1rem;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      min-width: 140px;
+    }
+    .modal button:hover {
+      background-color: #e03f35;
+      transform: translateY(-2px);
+    }
+
+    /* "LOOKING AWAY" ALERT */
+    .looking-away-alert {
+      display: none;
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #ff5349;
+      color: #fff;
+      padding: 1rem 1.5rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      z-index: 999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    @media (max-width: 768px) {
+      .header-stage3 h2 {
+        font-size: 1.8rem;
+      }
+      .webcam-container {
+        position: static;
+        margin: 2rem auto 0 auto;
+        width: 280px;
+        height: 200px;
+      }
+      .circle1, .circle2 {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- BACKGROUND SHAPES -->
+  <div class="background-shape circle1"></div>
+  <div class="background-shape circle2"></div>
+
+  <!-- "Looking Away" Alert -->
+  <div id="looking-away-alert" class="looking-away-alert">
+    You're looking away! Please keep your face in view.
+  </div>
+
+  <div class="container">
+    <!-- HEADER -->
+    <div class="header-stage3">
+      <h2>Stage 3: Final Verbal Interview</h2>
+      <p>
+        Now, we'll ask you a set of advanced conceptual questions related to 
+        the code you wrote in Stage 2. Please answer verbally. We'll transcribe 
+        your answer in real-time. If you look away you'll get an alert. Best of luck!
+      </p>
+    </div>
+
+    <!-- INFO BAR: Question Count, Timer -->
+    <div class="info-bar">
+      <div class="question-counter" id="question-counter-text"></div>
+      <div class="timer-box">
+        <span>Time Left:</span>
+        <span id="timer-value">120</span>
+        <span>sec</span>
+      </div>
+    </div>
+
+    <!-- QUESTION DISPLAY -->
+    <div class="question-box">
+      <h3>Current Question</h3>
+      <div class="question-text" id="question-text">
+        Loading question...
+      </div>
+    </div>
+
+    <!-- ANSWER SECTION -->
+    <div class="answer-section">
+      <textarea
+        id="answer-field"
+        class="answer-field"
+        rows="4"
+        placeholder="Your answer will appear here (auto-transcribed)..."
+      ></textarea>
+
+      <div class="controls">
+        <button id="stop-recording-btn">Stop Recording</button>
+        <button id="submit-answer-btn">Submit Answer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEBCAM FEED -->
+  <div class="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+  </div>
+
+  <!-- COMPLETION MODAL -->
+  <div class="modal-overlay" id="completion-overlay">
+    <div class="modal">
+      <h3 id="completion-title">Congratulations!</h3>
+      <p id="completion-message">You have completed Stage 3.</p>
+      <!-- If you want a final "Proceed" or "Finish" button, keep it here -->
+      <button id="next-stage-btn">Proceed to Next Stage</button>
+    </div>
+  </div>
+
+  <script>
+    /* =========================
+       EYE-BASED DETECTION VARS
+    ========================= */
+    let faceNotDetected = false;
+    let awayTimer = 0;
+    let detectionInterval;
+
+    /* =========================
+       SPEECH RECOGNITION VARS
+    ========================= */
+    let recognition;
+    let isRecording = false;
+    let questionsAnswered = 0;
+    let totalQuestions = 0;
+    let timer = 120;
+    let timerInterval = null;
+
+    /* =========================
+       ON PAGE LOAD
+    ========================= */
+    window.addEventListener('load', async () => {
+      // 1) Setup Mic Recognition
+      recognition = initRecognition();
+
+      // 2) Setup Camera for Eye-based Proctoring
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('webcam');
+        video.srcObject = stream;
+
+        const faceMesh = new FaceMesh({
+          locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+          }
+        });
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.8,
+          minTrackingConfidence: 0.8
+        });
+        faceMesh.onResults(onResults);
+
+        const camera = new Camera(video, {
+          onFrame: async () => {
+            await faceMesh.send({ image: video });
+          },
+          width: 280,
+          height: 200
+        });
+        camera.start();
+
+        // Face detection interval for 4s check
+        detectionInterval = setInterval(() => {
+          const alertBox = document.getElementById('looking-away-alert');
+          if (faceNotDetected) {
+            awayTimer += 1;
+            if (awayTimer >= 2) {
+              alertBox.style.display = 'block';
+            }
+          } else {
+            awayTimer = 0;
+            alertBox.style.display = 'none';
+          }
+        }, 1000);
+      } catch (err) {
+        console.warn('Unable to access camera for proctoring:', err);
+      }
+
+      // 3) Fetch Stage 3 Info & Start
+      try {
+        const res = await fetch('/get_stage3_info');
+        const data = await res.json();
+        if (data.error) {
+          alert('Error: ' + data.error);
+          return;
+        }
+        totalQuestions = data.total_questions;
+        questionsAnswered = data.answered;
+        updateQuestionCounter();
+        getNextQuestion();
+      } catch (err) {
+        console.error('Failed to get stage3 info:', err);
+      }
+    });
+
+    /* =========================
+       FACE MESH ONRESULTS
+       (Left Iris => index 468)
+    ========================= */
+    function onResults(results) {
+      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        faceNotDetected = true;
+        return;
+      }
+
+      const landmarks = results.multiFaceLandmarks[0];
+      if (!landmarks[468]) {
+        faceNotDetected = true;
+        return;
+      }
+
+      const leftIris = landmarks[468];
+
+      // bounding box for "looking center"
+      const zone = {
+        xMin: 0.4,
+        xMax: 0.6,
+        yMin: 0.4,
+        yMax: 0.6
+      };
+
+      if (
+        leftIris.x < zone.xMin ||
+        leftIris.x > zone.xMax ||
+        leftIris.y < zone.yMin ||
+        leftIris.y > zone.yMax
+      ) {
+        faceNotDetected = true;
+      } else {
+        faceNotDetected = false;
+      }
+    }
+
+    /* =========================
+       QUESTION FLOW
+    ========================= */
+    function updateQuestionCounter() {
+      const qcText = `Question ${questionsAnswered + 1} of ${totalQuestions}`;
+      document.getElementById('question-counter-text').textContent = qcText;
+    }
+
+    async function getNextQuestion() {
+      try {
+        const res = await fetch('/get_next_question_stage3');
+        if (!res.ok) {
+          document.getElementById('question-text').textContent = 'Error getting question.';
+          return;
+        }
+        const data = await res.json();
+        if (data.completed) {
+          showCompletionModal(data.completedMessage);
+          speakText(data.completedMessage);
+        } else {
+          document.getElementById('question-text').textContent = data.question;
+          // TTS read out the question, then record
+          await speakText(data.question);
+          startRecording();
+          startTimer(120);
+        }
+      } catch (err) {
+        console.error('Error fetching next question (Stage3):', err);
+      }
+    }
+
+    /* =========================
+       SPEECH RECOGNITION
+    ========================= */
+    function initRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert('Your browser does not support Speech Recognition. Please use Chrome or Edge.');
+        return null;
+      }
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+      return rec;
+    }
+
+    function startRecording() {
+      if (!recognition) return;
+      if (isRecording) {
+        return;
+      }
+      isRecording = true;
+      document.getElementById('answer-field').value = '';
+
+      recognition.start();
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        document.getElementById('answer-field').value = transcript;
+      };
+      recognition.onerror = (event) => {
+        console.error('Recognition error:', event.error);
+      };
+      // Auto-restart if ended from inactivity
+      recognition.onend = () => {
+        console.log('Speech recognition ended, restarting...');
+        if (isRecording) {
+          recognition.start();
+        }
+      };
+    }
+
+    function stopRecording() {
+      if (isRecording && recognition) {
+        isRecording = false;
+        recognition.stop();
+      }
+    }
+
+    /* =========================
+       TIMER
+    ========================= */
+    function startTimer(seconds) {
+      timer = seconds;
+      document.getElementById('timer-value').textContent = timer;
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+      timerInterval = setInterval(() => {
+        timer--;
+        document.getElementById('timer-value').textContent = timer;
+        if (timer <= 0) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+          stopRecording();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    /* =========================
+       SUBMIT ANSWER
+    ========================= */
+    document.getElementById('submit-answer-btn').addEventListener('click', async () => {
+      stopRecording();
+      stopTimer();
+
+      const answer = document.getElementById('answer-field').value.trim();
+      if (!answer) {
+        alert('Please provide an answer (speak or type).');
+        return;
+      }
+
+      try {
+        const res = await fetch('/submit_answer_stage3', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userAnswer: answer })
+        });
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+
+        if (data.completed) {
+          showCompletionModal(data.completedMessage);
+          if (data.completedMessage) {
+            speakText(data.completedMessage);
+          }
+        } else {
+          questionsAnswered++;
+          updateQuestionCounter();
+          document.getElementById('answer-field').value = '';
+          getNextQuestion();
+        }
+      } catch (err) {
+        console.error('Error submitting answer (Stage3):', err);
+      }
+    });
+
+    // Stop recording button
+    document.getElementById('stop-recording-btn').addEventListener('click', () => {
+      stopRecording();
+    });
+
+    /* =========================
+       COMPLETION MODAL
+    ========================= */
+    function showCompletionModal(message) {
+      stopTimer();
+      document.getElementById('completion-overlay').style.display = 'flex';
+      if (message) {
+        document.getElementById('completion-message').textContent = message;
+      }
+    }
+
+    // If you'd like a route to go to next stage or finish:
+    document.getElementById('next-stage-btn').addEventListener('click', () => {
+      // Example: final stage or more stages
+      window.location.href = '/finish_interview'; 
+    });
+
+    /* =========================
+       TEXT-TO-SPEECH
+    ========================= */
+    function speakText(text, lang = 'en-US') {
+      return new Promise((resolve, reject) => {
+        fetch('/synthesize_text', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: text, language: lang }),
+        })
+        .then(response => {
+          if (!response.ok) throw new Error('Network response was not ok');
+          return response.blob();
+        })
+        .then(blob => {
+          const audio = new Audio(URL.createObjectURL(blob));
+          audio.onended = () => resolve();
+          audio.onerror = (e) => reject(e);
+          audio.play().catch(reject);
+        })
+        .catch(reject);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interview Information</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Rubik Font -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <!-- Mediapipe FaceMesh, Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+  <style>
+    /* GLOBAL STYLES */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: "Rubik", sans-serif;
+      background-color: #f7fbff; /* Soft background */
+      color: #333;
+      padding: 2rem;
+      position: relative;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* BACKGROUND SHAPES */
+    .background-shape {
+      position: absolute;
+      opacity: 0.05;
+      z-index: 0;
+    }
+    .circle1 {
+      width: 200px;
+      height: 200px;
+      background-color: #2962ff;
+      border-radius: 50%;
+      top: -50px;
+      right: -100px;
+    }
+    .circle2 {
+      width: 150px;
+      height: 150px;
+      background-color: #ff5349;
+      border-radius: 50%;
+      bottom: -70px;
+      right: 50px;
+    }
+
+    /* TITLE */
+    h1 {
+      font-size: 2.4rem;
+      color: #2962ff;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* INSTRUCTIONS */
+    .instructions {
+      margin-bottom: 2.5rem;
+      line-height: 1.8;
+      max-width: 1000px;
+      position: relative;
+      z-index: 1;
+    }
+    .instructions p,
+    .instructions ul {
+      margin-bottom: 1.5rem;
+      font-size: 1.1rem;
+      color: #424242;
+    }
+    .instructions ul {
+      list-style: disc inside;
+    }
+    .instructions li {
+      margin-bottom: 0.6rem;
+    }
+
+    /* FORM CONTAINER */
+    .form-container {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+    .form-group label {
+      font-weight: 600;
+      margin-bottom: 0.6rem;
+      color: #333;
+      font-size: 1.1rem;
+    }
+    .form-group select {
+      padding: 0.8rem;
+      border: 1px solid #c5c5c5;
+      border-radius: 6px;
+      font-size: 1rem;
+      min-width: 150px;
+      transition: border-color 0.3s ease;
+      appearance: none;
+      background-image: url('data:image/svg+xml;utf8,<svg fill="%23424242" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      cursor: pointer;
+    }
+    .form-group select:focus {
+      border-color: #2962ff;
+      outline: none;
+      box-shadow: 0 0 5px rgba(41, 98, 255, 0.3);
+    }
+
+    /* START STAGE BUTTON */
+    .start-button {
+      background-color: #ff5349;
+      color: #fff;
+      border: none;
+      padding: 0.9rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      white-space: nowrap;
+      height: 50px;
+      min-width: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .start-button:hover {
+      background-color: #e03f35;
+      transform: translateY(-2px);
+    }
+    .start-button:active {
+      transform: translateY(0);
+    }
+
+    /* REQUEST BUTTONS */
+    .req-buttons-container {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+    .req-buttons-container button {
+      background-color: #2962ff;
+      color: #fff;
+      padding: 0.8rem 1.2rem;
+      font-size: 1rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    .req-buttons-container button:hover {
+      background-color: #1a47a7;
+      transform: translateY(-2px);
+    }
+
+    /* WEBCAM FEED */
+    .webcam-container {
+      position: absolute;
+      bottom: calc(2rem + 0.75in);
+      right: 2rem;
+      width: 320px;
+      height: 240px;
+      background-color: rgba(0, 0, 0, 0.07);
+      border: 2px dashed #ff5349;
+      border-radius: 8px;
+      overflow: hidden;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .webcam-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* "LOOKING AWAY" ALERT */
+    .looking-away-alert {
+      display: none;
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #ff5349;
+      color: #fff;
+      padding: 1rem 1.5rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      z-index: 999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2rem;
+      }
+      .instructions p,
+      .instructions ul {
+        font-size: 1rem;
+      }
+      .form-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .start-button {
+        width: 100%;
+        min-width: unset;
+      }
+      .webcam-container {
+        position: static;
+        margin: 2rem auto 0 auto;
+        width: 300px;
+        height: 220px;
+      }
+      .background-shape {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background Shapes -->
+  <div class="background-shape circle1"></div>
+  <div class="background-shape circle2"></div>
+
+  <!-- "Looking Away" Alert -->
+  <div id="looking-away-alert" class="looking-away-alert">
+    You're looking away! Please keep your face in view.
+  </div>
+
+  <h1 id="title-text">Hi {{ title }}!</h1>
+
+  <div class="instructions">
+    <p id="welcome-text">Welcome to the Mock Interview Platform. Please read the following instructions carefully before proceeding:</p>
+    <ul id="instruction-list">
+      <li>The interview is divided into multiple stages. Stage 1 will be a verbal Q/A round. Stage 2 will be a coding round. Stage 3 will be a follow up question round on the coding questions you solved.</li>
+      <li>Stage 1 questions will consist of 4 subjects. Operating systems, Computer Networks, Database Management Systems and Object Oriented Programming.</li>
+      <li>Stage 2 will consist of coding questions from data structures and algorithms. You can write the code in Python or Java.</li>
+      <li>Stage 3 will consist of follow up questions on the coding questions you solved in Stage 2.</li>
+      <li>We will use your microphone for voice-based answers and camera for proctoring purposes only.</li>
+      <li>If you look away from the camera, you'll see an alert. Please remain attentive.</li>
+      <li>Your microphone input will continue recording even if the alert pops up.</li>
+    </ul>
+    <p id="select-question">To begin, please allow camera and microphone access, then select the number of questions and click "Start Stage 1".</p>
+  </div>
+
+  <!-- Buttons to request microphone/camera permission -->
+  <div class="req-buttons-container">
+    <button id="mic-permission-btn">Request Microphone Access</button>
+    <button id="camera-permission-btn">Request Camera Access</button>
+  </div>
+
+  <!-- Form to select number of questions and start stage1 -->
+  <form action="/start_stage1" method="post">
+    <div class="form-container">
+      <div class="form-group">
+        <label for="num_questions"><strong>Number of Questions:</strong></label>
+        <select name="num_questions" id="num_questions">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </div>
+      <button type="submit" class="start-button"><strong>Start Stage 1</strong></button>
+    </div>
+  </form>
+
+  <!-- Webcam Container -->
+  <div class="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+  </div>
+
+  <!-- TTS Script (Reads out the info page automatically) -->
+  <script>
+    function speakText(text, lang = 'en-US') {
+      fetch('/synthesize_text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: text, language: lang }),
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const audio = new Audio(URL.createObjectURL(blob));
+        audio.play();
+      })
+      .catch(error => console.error('Error synthesizing text:', error));
+    }
+
+    window.onload = function() {
+      // Speak page instructions
+      const title         = document.getElementById('title-text').textContent;
+      const welcome       = document.getElementById('welcome-text').textContent;
+      const instructions  = document.getElementById('instruction-list');
+      const lastParagraph = document.getElementById('select-question').textContent;
+
+      let instructionText = "";
+      instructions.querySelectorAll('li').forEach(li => {
+        instructionText += li.textContent + ". ";
+      });
+
+      const combinedText = title + ". " + welcome + " " + instructionText + " " + lastParagraph;
+      speakText(combinedText);
+    }
+
+    // Microphone permission button
+    const micBtn = document.getElementById('mic-permission-btn');
+    micBtn.addEventListener('click', async () => {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        alert("Microphone access granted!");
+      } catch (err) {
+        alert("Microphone access denied or unavailable. Please enable to proceed with voice answers.");
+      }
+    });
+
+    // Camera permission + FaceMesh Setup
+    const cameraBtn = document.getElementById('camera-permission-btn');
+    let faceNotDetected = false;
+    let awayTimer = 0;
+    let detectionInterval;
+
+    cameraBtn.addEventListener('click', async () => {
+      try {
+        // Try to get video stream
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('webcam');
+        video.srcObject = stream;
+
+        // Setup Mediapipe FaceMesh
+        const faceMesh = new FaceMesh({
+          locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+          }
+        });
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        faceMesh.onResults(onResults);
+
+        const camera = new Camera(video, {
+          onFrame: async () => {
+            await faceMesh.send({ image: video });
+          },
+          width: 320,
+          height: 240
+        });
+        camera.start();
+
+        alert("Camera access granted! Face proctoring is active.");
+
+        // Start checking if user is looking away
+        detectionInterval = setInterval(() => {
+          const alertBox = document.getElementById('looking-away-alert');
+          if (faceNotDetected) {
+            awayTimer += 1; // increment each second
+            if (awayTimer >= 4) {
+              // Show alert
+              alertBox.style.display = 'block';
+            }
+          } else {
+            // Reset timer and hide alert
+            awayTimer = 0;
+            alertBox.style.display = 'none';
+          }
+        }, 1000);
+
+      } catch (error) {
+        alert("Camera access denied or unavailable. Please enable to proceed with face detection.");
+      }
+    });
+
+    function onResults(results) {
+      // If no face or not properly detected
+      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        faceNotDetected = true;
+      } else {
+        faceNotDetected = false;
+      }
+    }
+  </script>
+</body>
+</html>

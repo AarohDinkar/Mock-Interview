@@ -4,7 +4,6 @@ from firebase_admin import credentials, firestore
 import bcrypt
 from google.cloud import texttospeech_v1 as texttospeech
 import os
-from dotenv import load_dotenv
 import anthropic
 import random
 import time
@@ -13,54 +12,68 @@ import subprocess
 import tempfile
 import json
 
-# Load environment variables from .env file
-load_dotenv()
+# Import Secret Manager
+from google.cloud import secretmanager as sm
 
 app = Flask(__name__)
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default_secret_key')  # Replace with a secure key in production
+
+# Set a session secret key. Optionally store this in Secret Manager as well.
+app.secret_key = 'super-secret-key-change-me-in-production'
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,  # Set the logging level to INFO
-    format='%(asctime)s - %(levelname)s - %(message)s',  # Define the log message format
+    level=logging.INFO,  # or logging.DEBUG if you want more details
+    format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("app.log"),  # Log messages will be written to 'app.log'
-        logging.StreamHandler()  # Additionally, log messages will be output to the console
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
     ]
 )
+logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)  # Create a logger instance for this module
+# ---------------------------------------------------------------------
+# LOAD SECRETS FROM GOOGLE SECRET MANAGER
+# ---------------------------------------------------------------------
+try:
+    project_id = os.getenv("GCP_PROJECT")  # Provided automatically on App Engine
+    if not project_id:
+        logger.warning("GCP_PROJECT environment variable not set. Using fallback project ID.")
+        project_id = "my-fallback-project-id"  # For local dev if needed
+    
+    secret_client = sm.SecretManagerServiceClient()
 
-# Load credentials from environment variables
-firestore_creds_path = os.getenv('FIRESTORE_CREDS_PATH')
-tts_creds_path = os.getenv('TTS_CREDS_PATH')
-claude_api_key = os.getenv('CLAUDE_API_KEY')
+    def get_secret(secret_id, version_id="latest"):
+        """
+        Retrieve the secret payload (string) from Secret Manager.
+        """
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+        response = secret_client.access_secret_version(request={"name": name})
+        return response.payload.data.decode("UTF-8")
+    
+    # Fetch secrets
+    claude_api_key = get_secret("CLAUDE_API_KEY")
+    firestore_creds_json = get_secret("FIRESTORE_CREDS_JSON")
+    tts_creds_json = get_secret("TTS_CREDS_JSON")
 
-# Initialize Firebase Admin SDK
-if firestore_creds_path:
-    cred = credentials.Certificate(firestore_creds_path)
+    # Initialize Firebase Admin SDK (Firestore)
+    firestore_creds_dict = json.loads(firestore_creds_json)
+    cred = credentials.Certificate(firestore_creds_dict)
     firebase_admin.initialize_app(cred)
     db = firestore.client()
-    logger.info("Initialized Firebase Admin SDK.")
-else:
-    logger.error("FIRESTORE_CREDS_PATH not set in .env")
-    raise Exception("FIRESTORE_CREDS_PATH not set in .env")
+    logger.info("Initialized Firebase Admin SDK with secret manager credentials.")
 
-# Initialize Text-to-Speech Client
-if tts_creds_path:
-    tts_client = texttospeech.TextToSpeechClient.from_service_account_file(tts_creds_path)
-    logger.info("Initialized Text-to-Speech client.")
-else:
-    logger.error("TTS_CREDS_PATH not set in .env")
-    raise Exception("TTS_CREDS_PATH not set in .env")
+    # Initialize Text-to-Speech Client
+    tts_creds_dict = json.loads(tts_creds_json)
+    tts_client = texttospeech.TextToSpeechClient.from_service_account_info(tts_creds_dict)
+    logger.info("Initialized Text-to-Speech client from secret manager credentials.")
 
-# Initialize Anthropic Client for Claude API
-if claude_api_key:
+    # Initialize Anthropic Client for Claude
     anthropic_client = anthropic.Client(api_key=claude_api_key)
-    logger.info("Initialized Anthropic Client for Claude API.")
-else:
-    logger.error("CLAUDE_API_KEY not set in .env")
-    raise Exception("CLAUDE_API_KEY not set in .env")
+    logger.info("Initialized Anthropic Client for Claude API from secret manager.")
+
+except Exception as e:
+    logger.error(f"Failed to load secrets from Secret Manager or initialize services: {e}")
+    raise
 
 
 @app.route('/')
